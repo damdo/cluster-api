@@ -170,14 +170,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Re
 	if m.Labels == nil {
 		m.Labels = make(map[string]string)
 	}
-	m.Labels[clusterv1.ClusterLabelName] = m.Spec.ClusterName
+	m.Labels[clusterv1.ClusterNameLabel] = m.Spec.ClusterName
 
 	result, err := r.reconcile(ctx, log, cluster, m)
 	if err != nil {
 		// Requeue if the reconcile failed because the ClusterCacheTracker was locked for
 		// the current cluster because of concurrent access.
 		if errors.Is(err, remote.ErrClusterLocked) {
-			log.V(5).Info("Requeueing because another worker has the lock on the ClusterCacheTracker")
+			log.V(5).Info("Requeuing because another worker has the lock on the ClusterCacheTracker")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		log.Error(err, "Failed to reconcile MachineHealthCheck")
@@ -322,7 +322,7 @@ func (r *Reconciler) reconcile(ctx context.Context, logger logr.Logger, cluster 
 
 	// handle update errors
 	if len(errList) > 0 {
-		logger.V(3).Info("Error(s) marking machine, requeueing")
+		logger.V(3).Info("Error(s) marking machine, requeuing")
 		return reconcile.Result{}, kerrors.NewAggregate(errList)
 	}
 
@@ -394,7 +394,7 @@ func (r *Reconciler) patchUnhealthyTargets(ctx context.Context, logger logr.Logg
 
 				from, err := external.Get(ctx, r.Client, m.Spec.RemediationTemplate, t.Machine.Namespace)
 				if err != nil {
-					conditions.MarkFalse(m, clusterv1.ExternalRemediationTemplateAvailable, clusterv1.ExternalRemediationTemplateNotFound, clusterv1.ConditionSeverityError, err.Error())
+					conditions.MarkFalse(m, clusterv1.ExternalRemediationTemplateAvailableCondition, clusterv1.ExternalRemediationTemplateNotFoundReason, clusterv1.ConditionSeverityError, err.Error())
 					errList = append(errList, errors.Wrapf(err, "error retrieving remediation template %v %q for machine %q in namespace %q within cluster %q", m.Spec.RemediationTemplate.GroupVersionKind(), m.Spec.RemediationTemplate.Name, t.Machine.Name, t.Machine.Namespace, m.Spec.ClusterName))
 					return errList
 				}
@@ -423,7 +423,7 @@ func (r *Reconciler) patchUnhealthyTargets(ctx context.Context, logger logr.Logg
 				logger.Info("Target has failed health check, creating an external remediation request", "remediation request name", to.GetName(), "target", t.string(), "reason", condition.Reason, "message", condition.Message)
 				// Create the external clone.
 				if err := r.Client.Create(ctx, to); err != nil {
-					conditions.MarkFalse(m, clusterv1.ExternalRemediationRequestAvailable, clusterv1.ExternalRemediationRequestCreationFailed, clusterv1.ConditionSeverityError, err.Error())
+					conditions.MarkFalse(m, clusterv1.ExternalRemediationRequestAvailableCondition, clusterv1.ExternalRemediationRequestCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 					errList = append(errList, errors.Wrapf(err, "error creating remediation request for machine %q in namespace %q within cluster %q", t.Machine.Name, t.Machine.Namespace, t.Machine.Spec.ClusterName))
 					return errList
 				}
@@ -465,7 +465,7 @@ func (r *Reconciler) clusterToMachineHealthCheck(o client.Object) []reconcile.Re
 		context.TODO(),
 		mhcList,
 		client.InNamespace(c.Namespace),
-		client.MatchingLabels{clusterv1.ClusterLabelName: c.Name},
+		client.MatchingLabels{clusterv1.ClusterNameLabel: c.Name},
 	); err != nil {
 		return nil
 	}
@@ -492,7 +492,7 @@ func (r *Reconciler) machineToMachineHealthCheck(o client.Object) []reconcile.Re
 		context.TODO(),
 		mhcList,
 		client.InNamespace(m.Namespace),
-		client.MatchingLabels{clusterv1.ClusterLabelName: m.Spec.ClusterName},
+		client.MatchingLabels{clusterv1.ClusterNameLabel: m.Spec.ClusterName},
 	); err != nil {
 		return nil
 	}

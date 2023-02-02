@@ -38,6 +38,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassPatch":                        schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassPatch(ref),
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassSpec":                         schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassSpec(ref),
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatus":                       schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatus(ref),
+		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariable":               schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatusVariable(ref),
+		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariableDefinition":     schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatusVariableDefinition(ref),
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassVariable":                     schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassVariable(ref),
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterList":                              schema_sigsk8sio_cluster_api_api_v1beta1_ClusterList(ref),
 		"sigs.k8s.io/cluster-api/api/v1beta1.ClusterNetwork":                           schema_sigsk8sio_cluster_api_api_v1beta1_ClusterNetwork(ref),
@@ -423,6 +425,20 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatus(ref common.Refe
 				Description: "ClusterClassStatus defines the observed state of the ClusterClass.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"variables": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Variables is a list of ClusterClassStatusVariable that are defined for the ClusterClass.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariable"),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Conditions defines current observed state of the ClusterClass.",
@@ -437,11 +453,102 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatus(ref common.Refe
 							},
 						},
 					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration is the latest generation observed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"sigs.k8s.io/cluster-api/api/v1beta1.Condition"},
+			"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariable", "sigs.k8s.io/cluster-api/api/v1beta1.Condition"},
+	}
+}
+
+func schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatusVariable(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterClassStatusVariable defines a variable which appears in the status of a ClusterClass.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the variable.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"defintionsConflict": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefintionsConflict specifies whether or not there are conflicting definitions for a single variable name.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"definitions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Definitions is a list of definitions for a variable.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariableDefinition"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "definitions"},
+			},
+		},
+		Dependencies: []string{
+			"sigs.k8s.io/cluster-api/api/v1beta1.ClusterClassStatusVariableDefinition"},
+	}
+}
+
+func schema_sigsk8sio_cluster_api_api_v1beta1_ClusterClassStatusVariableDefinition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterClassStatusVariableDefinition defines a variable which appears in the status of a ClusterClass.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"from": {
+						SchemaProps: spec.SchemaProps{
+							Description: "From specifies the origin of the variable definition. This will be `inline` for variables defined in the ClusterClass or the name of a patch defined in the ClusterClass for variables discovered from a DiscoverVariables runtime extensions.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required specifies if the variable is required. Note: this applies to the variable as a whole and thus the top-level object defined in the schema. If nested fields are required, this will be specified inside the schema.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema defines the schema of the variable.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("sigs.k8s.io/cluster-api/api/v1beta1.VariableSchema"),
+						},
+					},
+				},
+				Required: []string{"from", "required", "schema"},
+			},
+		},
+		Dependencies: []string{
+			"sigs.k8s.io/cluster-api/api/v1beta1.VariableSchema"},
 	}
 }
 
@@ -815,7 +922,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_ControlPlaneClass(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Metadata is the metadata applied to the machines of the ControlPlane. At runtime this metadata is merged with the corresponding metadata from the topology.\n\nThis field is supported if and only if the control plane provider template referenced is Machine based.",
+							Description: "Metadata is the metadata applied to the ControlPlane and the Machines of the ControlPlane if the ControlPlaneTemplate referenced is machine based. If not, it is applied only to the ControlPlane. At runtime this metadata is merged with the corresponding metadata from the topology.\n\nThis field is supported if and only if the control plane provider template referenced is Machine based.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("sigs.k8s.io/cluster-api/api/v1beta1.ObjectMeta"),
 						},
@@ -874,7 +981,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_ControlPlaneTopology(ref common.Re
 				Properties: map[string]spec.Schema{
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Metadata is the metadata applied to the machines of the ControlPlane. At runtime this metadata is merged with the corresponding metadata from the ClusterClass.\n\nThis field is supported if and only if the control plane provider template referenced in the ClusterClass is Machine based.",
+							Description: "Metadata is the metadata applied to the ControlPlane and the Machines of the ControlPlane if the ControlPlaneTemplate referenced by the ClusterClass is machine based. If not, it is applied only to the ControlPlane. At runtime this metadata is merged with the corresponding metadata from the ClusterClass.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("sigs.k8s.io/cluster-api/api/v1beta1.ObjectMeta"),
 						},
@@ -937,6 +1044,22 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_ExternalPatchDefinition(ref common
 							Description: "ValidateExtension references an extension which is called to validate the topology.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"settings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Settings defines key value pairs to be passed to the extensions. Values defined here take precedence over the values defined in the corresponding ExtensionConfig.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -1313,7 +1436,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_MachineAddress(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Machine address type, one of Hostname, ExternalIP or InternalIP.",
+							Description: "Machine address type, one of Hostname, ExternalIP, InternalIP, ExternalDNS or InternalDNS.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -1465,7 +1588,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_MachineDeploymentClassTemplate(ref
 				Properties: map[string]spec.Schema{
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Metadata is the metadata applied to the machines of the MachineDeployment. At runtime this metadata is merged with the corresponding metadata from the topology.",
+							Description: "Metadata is the metadata applied to the MachineDeployment and the machines of the MachineDeployment. At runtime this metadata is merged with the corresponding metadata from the topology.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("sigs.k8s.io/cluster-api/api/v1beta1.ObjectMeta"),
 						},
@@ -1748,7 +1871,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_MachineDeploymentTopology(ref comm
 				Properties: map[string]spec.Schema{
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Metadata is the metadata applied to the machines of the MachineDeployment. At runtime this metadata is merged with the corresponding metadata from the ClusterClass.",
+							Description: "Metadata is the metadata applied to the MachineDeployment and the machines of the MachineDeployment. At runtime this metadata is merged with the corresponding metadata from the ClusterClass.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("sigs.k8s.io/cluster-api/api/v1beta1.ObjectMeta"),
 						},
@@ -1778,7 +1901,7 @@ func schema_sigsk8sio_cluster_api_api_v1beta1_MachineDeploymentTopology(ref comm
 					},
 					"replicas": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Replicas is the number of worker nodes belonging to this set. If the value is nil, the MachineDeployment is created without the number of Replicas (defaulting to zero) and it's assumed that an external entity (like cluster autoscaler) is responsible for the management of this value.",
+							Description: "Replicas is the number of worker nodes belonging to this set. If the value is nil, the MachineDeployment is created without the number of Replicas (defaulting to 1) and it's assumed that an external entity (like cluster autoscaler) is responsible for the management of this value.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},

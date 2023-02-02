@@ -101,7 +101,7 @@ func (r *DockerMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 	if cluster == nil {
-		log.Info(fmt.Sprintf("Please associate this machine with a cluster using the label %s: <name of cluster>", clusterv1.ClusterLabelName))
+		log.Info(fmt.Sprintf("Please associate this machine with a cluster using the label %s: <name of cluster>", clusterv1.ClusterNameLabel))
 		return ctrl.Result{}, nil
 	}
 
@@ -171,7 +171,7 @@ func (r *DockerMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Requeue if the reconcile failed because the ClusterCacheTracker was locked for
 	// the current cluster because of concurrent access.
 	if errors.Is(err, remote.ErrClusterLocked) {
-		log.V(5).Info("Requeueing because another worker has the lock on the ClusterCacheTracker")
+		log.V(5).Info("Requeuing because another worker has the lock on the ClusterCacheTracker")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return res, err
@@ -432,7 +432,7 @@ func (r *DockerMachineReconciler) DockerClusterToDockerMachines(o client.Object)
 		return result
 	}
 
-	labels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	labels := map[string]string{clusterv1.ClusterNameLabel: cluster.Name}
 	machineList := &clusterv1.MachineList{}
 	if err := r.Client.List(context.TODO(), machineList, client.InNamespace(c.Namespace), client.MatchingLabels(labels)); err != nil {
 		return nil

@@ -125,9 +125,16 @@ type ClusterConfiguration struct {
 	CertificatesDir string `json:"certificatesDir,omitempty"`
 
 	// ImageRepository sets the container registry to pull images from.
-	// If empty, `registry.k8s.io` will be used by default; in case of kubernetes version is a CI build (kubernetes version starts with `ci/` or `ci-cross/`)
-	// `gcr.io/k8s-staging-ci-images` will be used as a default for control plane components and for kube-proxy, while `registry.k8s.io`
-	// will be used for all the other images.
+	// * If not set, the default registry of kubeadm will be used, i.e.
+	//   * registry.k8s.io (new registry): >= v1.22.17, >= v1.23.15, >= v1.24.9, >= v1.25.0
+	//   * k8s.gcr.io (old registry): all older versions
+	//   Please note that when imageRepository is not set we don't allow upgrades to
+	//   versions >= v1.22.0 which use the old registry (k8s.gcr.io). Please use
+	//   a newer patch version with the new registry instead (i.e. >= v1.22.17,
+	//   >= v1.23.15, >= v1.24.9, >= v1.25.0).
+	// * If the version is a CI build (kubernetes version starts with `ci/` or `ci-cross/`)
+	//  `gcr.io/k8s-staging-ci-images` will be used as a default for control plane components
+	//   and for kube-proxy, while `registry.k8s.io` will be used for all the other images.
 	// +optional
 	ImageRepository string `json:"imageRepository,omitempty"`
 
@@ -244,6 +251,16 @@ type NodeRegistrationOptions struct {
 	// IgnorePreflightErrors provides a slice of pre-flight errors to be ignored when the current node is registered.
 	// +optional
 	IgnorePreflightErrors []string `json:"ignorePreflightErrors,omitempty"`
+
+	// ImagePullPolicy specifies the policy for image pulling
+	// during kubeadm "init" and "join" operations. The value of
+	// this field must be one of "Always", "IfNotPresent" or
+	// "Never". Defaults to "IfNotPresent". This can be used only
+	// with Kubernetes version equal to 1.22 and later.
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:default=IfNotPresent
+	// +optional
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 }
 
 // MarshalJSON marshals NodeRegistrationOptions in a way that an empty slice in Taints is preserved.
@@ -264,12 +281,14 @@ func (n *NodeRegistrationOptions) MarshalJSON() ([]byte, error) {
 			Taints                []corev1.Taint    `json:"taints"`
 			KubeletExtraArgs      map[string]string `json:"kubeletExtraArgs,omitempty"`
 			IgnorePreflightErrors []string          `json:"ignorePreflightErrors,omitempty"`
+			ImagePullPolicy       string            `json:"imagePullPolicy,omitempty"`
 		}{
 			Name:                  n.Name,
 			CRISocket:             n.CRISocket,
 			Taints:                n.Taints,
 			KubeletExtraArgs:      n.KubeletExtraArgs,
 			IgnorePreflightErrors: n.IgnorePreflightErrors,
+			ImagePullPolicy:       n.ImagePullPolicy,
 		})
 	}
 
@@ -280,12 +299,14 @@ func (n *NodeRegistrationOptions) MarshalJSON() ([]byte, error) {
 		Taints                []corev1.Taint    `json:"taints,omitempty"`
 		KubeletExtraArgs      map[string]string `json:"kubeletExtraArgs,omitempty"`
 		IgnorePreflightErrors []string          `json:"ignorePreflightErrors,omitempty"`
+		ImagePullPolicy       string            `json:"imagePullPolicy,omitempty"`
 	}{
 		Name:                  n.Name,
 		CRISocket:             n.CRISocket,
 		Taints:                n.Taints,
 		KubeletExtraArgs:      n.KubeletExtraArgs,
 		IgnorePreflightErrors: n.IgnorePreflightErrors,
+		ImagePullPolicy:       n.ImagePullPolicy,
 	})
 }
 

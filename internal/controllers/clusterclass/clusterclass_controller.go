@@ -99,12 +99,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Re
 	}
 
 	defer func() {
-		if err := patchHelper.Patch(ctx, clusterClass); err != nil {
+		// Patch ObservedGeneration only if the reconciliation completed successfully
+		patchOpts := []patch.Option{}
+		if reterr == nil {
+			patchOpts = append(patchOpts, patch.WithStatusObservedGeneration{})
+		}
+		if err := patchHelper.Patch(ctx, clusterClass, patchOpts...); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, errors.Wrapf(err, "failed to patch %s", tlog.KObj{Obj: clusterClass})})
 			return
 		}
 	}()
-
 	return r.reconcile(ctx, clusterClass)
 }
 
@@ -138,7 +142,7 @@ func (r *Reconciler) reconcile(ctx context.Context, clusterClass *clusterv1.Clus
 	// For example the same KubeadmConfigTemplate could be referenced in multiple MachineDeployment
 	// classes.
 	errs := []error{}
-	reconciledRefs := sets.NewString()
+	reconciledRefs := sets.Set[string]{}
 	outdatedRefs := map[*corev1.ObjectReference]*corev1.ObjectReference{}
 	for i := range refs {
 		ref := refs[i]
@@ -173,6 +177,20 @@ func (r *Reconciler) reconcile(ctx context.Context, clusterClass *clusterv1.Clus
 		return ctrl.Result{}, kerrors.NewAggregate(errs)
 	}
 
+	// Ensure the variables are added to the ClusterClass status.
+	clusterClass.Status.Variables = []clusterv1.ClusterClassStatusVariable{}
+	for _, variable := range clusterClass.Spec.Variables {
+		clusterClass.Status.Variables = append(clusterClass.Status.Variables,
+			clusterv1.ClusterClassStatusVariable{
+				Name: variable.Name,
+				Definitions: []clusterv1.ClusterClassStatusVariableDefinition{
+					{
+						From:     clusterv1.VariableDefinitionFromInline,
+						Required: variable.Required,
+						Schema:   variable.Schema,
+					},
+				}})
+	}
 	reconcileConditions(clusterClass, outdatedRefs)
 
 	return ctrl.Result{}, nil
