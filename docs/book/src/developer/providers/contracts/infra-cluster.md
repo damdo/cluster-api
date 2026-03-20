@@ -360,6 +360,20 @@ Once `status.initialization.provisioned` is set the Cluster "core" controller wi
 `status.initialization.infrastructureProvisioned`; if defined, also InfraCluster's `spec.controlPlaneEndpoint` 
 and `status.failureDomains` will be surfaced on Cluster's corresponding fields at the same time.
 
+<aside class="note">
+
+<h1>Load balancer readiness</h1>
+
+If the infrastructure includes a load balancer for the control plane, providers SHOULD ensure the load balancer
+is fully provisioned and ready to accept traffic before setting `status.initialization.provisioned` to `true`.
+
+This is important because downstream consumers, such as InfraMachine controllers, use
+`status.initialization.provisioned` (surfaced as Cluster's `status.infrastructureReady`) as a signal that
+the infrastructure is ready; InfraMachine controllers will then attempt to register control plane instances
+with the load balancer, which requires the load balancer to be available.
+
+</aside>
+
 <aside class="note warning">
 
 <h1>Compatibility with the deprecated v1beta1 contract</h1>
@@ -561,8 +575,15 @@ is implemented in InfraCluster controllers:
 1. Add the provider-specific finalizer, if needed
 1. Reconcile provider-specific cluster infrastructure
     1. If any errors are encountered, exit the reconciliation
-1. If the provider created a load balancer for the control plane, record its hostname or IP in `spec.controlPlaneEndpoint`
-1. Set `status.infrastructure.provisioned` to `true`
+1. If the provider created a load balancer for the control plane, ensure it is ready and available
+   (e.g. the container or cloud resource exists and is accepting connections), then record its hostname
+   or IP in `spec.controlPlaneEndpoint`
+    1. Providers SHOULD surface the availability of the load balancer using a condition
+       (e.g. `LoadBalancerAvailable`). See the DevCluster reference implementation for an example.
+    1. **Note**: `status.initialization.provisioned` MUST NOT be set to `true` until the load balancer is
+       ready, because downstream consumers (e.g. InfraMachine controllers) rely on this signal to start
+       registering control plane instances with the load balancer.
+1. Set `status.initialization.provisioned` to `true`
 1. Set `status.failureDomains` based on available provider failure domains (optional)
 1. Patch the resource to persist changes
 
