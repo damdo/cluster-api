@@ -75,10 +75,10 @@ func (webhook *KubeadmControlPlaneTemplate) ValidateCreate(_ context.Context, k 
 func (webhook *KubeadmControlPlaneTemplate) ValidateUpdate(_ context.Context, oldK, newK *controlplanev1.KubeadmControlPlaneTemplate) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 
-	// Apply defaults from older versions of CAPI so the following checks do not report differences when
+	// Apply defaults so the following checks do not report differences when
 	// dealing with objects created before dropping those defaults.
-	defaulting.ApplyPreviousKubeadmConfigDefaults(&oldK.Spec.Template.Spec.KubeadmConfigSpec)
-	defaulting.ApplyPreviousKubeadmConfigDefaults(&newK.Spec.Template.Spec.KubeadmConfigSpec)
+	defaulting.ApplyKubeadmConfigDefaults(&oldK.Spec.Template.Spec.KubeadmConfigSpec)
+	defaulting.ApplyKubeadmConfigDefaults(&newK.Spec.Template.Spec.KubeadmConfigSpec)
 
 	// In Cluster API < v1.11 the RolloutStrategy field was defaulted.
 	// The defaulting was dropped with Cluster API v1.11.

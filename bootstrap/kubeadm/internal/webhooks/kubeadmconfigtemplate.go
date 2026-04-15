@@ -56,7 +56,7 @@ func (webhook *KubeadmConfigTemplate) Default(ctx context.Context, c *bootstrapv
 	if topology.IsDryRunRequest(req, c) {
 		// In case of dry-run requests from the topology controller, apply defaults from older versions of CAPI
 		// so we do not trigger rollouts when dealing with objects created before dropping those defaults.
-		defaulting.ApplyPreviousKubeadmConfigDefaults(&c.Spec.Template.Spec)
+		defaulting.ApplyKubeadmConfigDefaults(&c.Spec.Template.Spec)
 	}
 
 	return nil

@@ -18,8 +18,30 @@ limitations under the License.
 package defaulting
 
 import (
+	"k8s.io/utils/ptr"
+
 	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
 )
+
+// ApplyKubeadmConfigDefaults applies default values to a KubeadmConfigSpec,
+// as well as previous defaults via ApplyPreviousKubeadmConfigDefaults.
+func ApplyKubeadmConfigDefaults(c *bootstrapv1.KubeadmConfigSpec) {
+	// If not set, raise the kubeadm KubernetesAPICall timeout from its upstream kubeadm default of 1m
+	// so that kubeadm operations are more resilient to transient issues during bootstrap.
+	// These transient failures are common in cloud providers,
+	// especially around LoadBalancer resolvability and instance registration.
+	// As this provider configures kubeadm to run unattended,
+	// we want to try our best to get a cluster installed before giving up.
+	// See https://github.com/kubernetes/kubeadm/issues/3294 for more details.
+	if c.InitConfiguration.Timeouts.KubernetesAPICallSeconds == nil {
+		c.InitConfiguration.Timeouts.KubernetesAPICallSeconds = ptr.To[int32](900) // 15m
+	}
+	if c.JoinConfiguration.Timeouts.KubernetesAPICallSeconds == nil {
+		c.JoinConfiguration.Timeouts.KubernetesAPICallSeconds = ptr.To[int32](900) // 15m
+	}
+
+	ApplyPreviousKubeadmConfigDefaults(c)
+}
 
 // ApplyPreviousKubeadmConfigDefaults defaults a KubeadmConfig with default values we used in the past.
 // This is done in multiple places (webhooks and KCP controller) to ensure no rollouts are triggered now that

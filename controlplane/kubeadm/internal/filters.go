@@ -333,8 +333,8 @@ func PrepareKubeadmConfigsForDiff(desiredKubeadmConfig, currentKubeadmConfig *bo
 	// *Note* This assumes that newly added default values never
 	// introduce a semantic difference to the unset value.
 	// But that is something that is ensured by our API guarantees.
-	defaulting.ApplyPreviousKubeadmConfigDefaults(&desiredKubeadmConfig.Spec)
-	defaulting.ApplyPreviousKubeadmConfigDefaults(&currentKubeadmConfig.Spec)
+	defaulting.ApplyKubeadmConfigDefaults(&desiredKubeadmConfig.Spec)
+	defaulting.ApplyKubeadmConfigDefaults(&currentKubeadmConfig.Spec)
 
 	// Cleanup JoinConfiguration.Discovery from desiredKubeadmConfig and currentKubeadmConfig, because those info are relevant only for
 	// the join process and not for comparing the configuration of the machine.
