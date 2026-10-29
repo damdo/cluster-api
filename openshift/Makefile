@@ -27,6 +27,14 @@ update-manifests-gen:
 ipam-manifests: $(KUSTOMIZE)
 	$(KUSTOMIZE) build ipam -o manifests/0000_30_cluster-api_04_crd.core-cluster-api.yaml
 
+.PHONY: capi-ipam-conversion-webhook
+capi-ipam-conversion-webhook: ## Build the standalone IPAM conversion webhook binary
+	cd capi-ipam-conversion-webhook; GOTOOLCHAIN=auto go build -trimpath -o $(abspath ../bin)/capi-ipam-conversion-webhook .
+
+.PHONY: test-capi-ipam-conversion-webhook
+test-capi-ipam-conversion-webhook: ## Run standalone IPAM conversion webhook tests
+	cd capi-ipam-conversion-webhook; GOTOOLCHAIN=auto go test -race ./...
+
 # Rebasebot runs ocp-manifests, so we make it generate ipam-manifests too
 .PHONY: ocp-manifests
 ocp-manifests: ipam-manifests $(MANIFESTS_GEN) | $(RELEASE_DIR) ## Builds openshift specific manifests

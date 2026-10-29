@@ -121,9 +121,8 @@ deleted during retirement.
 
 ### Release N+1: promote, adopt, and clean up in the same release
 
-#### Payload order 30: ownership and conversion handoff
-
-1. Promote `ClusterAPIMachineManagement` into the Default feature set.
+1. At payload order 30, begin the ownership and conversion handoff by promoting
+   `ClusterAPIMachineManagement` into the Default feature set.
 
    The negatively gated standalone CRD manifests
    (the IPAM CRDs managed by CVO under openshift/manifests) become excluded,
@@ -168,109 +167,92 @@ deleted during retirement.
    Removal is appropriate only when all supported configurations have another
    owner. Never add CRD deletion tombstones.
 
-#### Existing order-30 completion barrier
-
-CCAPIO already reports the target operator version only after the desired
-provider revision finishes installation; no new version-reporting mechanism
-is required for this plan:
-
-1. Boxcutter applies the provider revision and probes CRDs for
+5. Use the existing order-30 completion barrier: CCAPIO already reports the
+   target operator version only after the desired CAPI provider revision finishes
+   installation; no new version-reporting mechanism is required for this plan.
+   Boxcutter applies the provider revision and probes CRDs for
    `Established=True` and provider Deployments, including the core CAPI manager,
    for `Available=True`.
-2. The core manager Deployment probes `/readyz`. CAPI registers
+
+6. The core manager Deployment probes `/readyz`. CAPI registers
    `mgr.GetWebhookServer().StartedChecker()` there, which checks that the
    webhook listener has started and accepts a local TLS connection.
-3. The installer advances `ClusterAPI.status.currentRevision` after all phases
+
+7. The installer advances `ClusterAPI.status.currentRevision` after all phases
    complete. The revision controller reports the target operator version only
    when the current revision matches the desired revision.
-4. During an ordered upgrade, CVO checks the order-30 `ClusterOperator/cluster-api`
+
+8. During an ordered upgrade, CVO checks the order-30 `ClusterOperator/cluster-api`
    for availability, absence of degradation, and the expected target version
    before advancing to order 31. `Progressing=True` alone is not a barrier.
 
-This is meaningful replacement-webhook readiness, not merely readiness of the
-CCAPIO operator Deployment. It supports same-release cleanup after installation
-of the replacement provider revision.
+   This is meaningful replacement-webhook readiness, not merely readiness of the
+   CCAPIO operator Deployment. It supports same-release cleanup after installation
+   of the replacement provider revision.
 
-Its limits must be covered by upgrade validation:
+   Implementation references reviewed for this plan:
 
-- The listener check skips certificate verification; it does not prove Service
-  routing, CRD CA trust, or successful conversion through the API server.
-- An existing Deployment can remain `Available=True` using old ready replicas
-  during rollout. Check replacement rollout completion where applicable.
-- The order-30 ClusterOperator barrier must be included whenever cleanup is
-  included. If capability filtering excludes CCAPIO, ordering provides no such
-  barrier. The initial MachineAPI-only retirement eligibility must therefore
-  be coordinated with CCAPIO capability coverage.
-- Numeric ordering applies to ordered upgrades, not universally to initial
-  installation or steady-state reconciliation. Payload order 30 is unrelated
-  to the namespace's `openshift.io/run-level` label.
+   - [CCAPIO revision/version reporting](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/revision/revision_controller.go)
+   - [Boxcutter phases and adoption](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/installer/boxcutter.go)
+   - [Installer readiness probes](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/installer/probes.go)
+   - [CAPI readiness registration](../../main.go)
+   - [CVO ordered upgrade scheduling](https://github.com/openshift/cluster-version-operator/blob/main/pkg/cvo/sync_worker.go)
+   - [CVO ClusterOperator health/version checks](https://github.com/openshift/cluster-version-operator/blob/main/pkg/cvo/internal/operatorstatus.go)
 
-Implementation references reviewed for this plan:
-
-- [CCAPIO revision/version reporting](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/revision/revision_controller.go)
-- [Boxcutter phases and adoption](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/installer/boxcutter.go)
-- [Installer readiness probes](https://github.com/openshift/cluster-capi-operator/blob/main/pkg/controllers/installer/probes.go)
-- [CAPI readiness registration](../../main.go)
-- [CVO ordered upgrade scheduling](https://github.com/openshift/cluster-version-operator/blob/main/pkg/cvo/sync_worker.go)
-- [CVO ClusterOperator health/version checks](https://github.com/openshift/cluster-version-operator/blob/main/pkg/cvo/internal/operatorstatus.go)
-
-Recheck these contracts against the actual promotion release's source.
-
-#### Payload order 31: delete the standalone resources
-
-1. Remove the standalone runtime creation manifests from the target payload.
+9. Prepare deletion of the standalone capi-ipam-conversion-webhook resources at payload order 31 by removing
+   the standalone runtime creation manifests from the target payload.
    Keep the existing source-release webhook serving until handoff; target-payload
    omission does not delete it. Do not rely on its image being updated during
    this transition.
 
-2. Add a cleanup bundle, for example:
+10. Add an order-31 cleanup bundle, for example:
 
-   `openshift/manifests/0000_31_cluster-api_00_delete-capi-ipam-conversion-webhook.yaml`
+    in `openshift/manifests/0000_31_cluster-api_00_delete-capi-ipam-conversion-webhook.yaml`
 
-   Add `release.openshift.io/delete: "true"` to tombstones for the dedicated:
+    Add `release.openshift.io/delete: "true"` to tombstones for the dedicated:
 
-   - Deployment.
-   - Service.
-   - ServiceAccount.
-   - ClusterRoleBinding.
-   - ClusterRole.
-   - NetworkPolicy.
+    - Deployment.
+    - Service.
+    - ServiceAccount.
+    - ClusterRoleBinding.
+    - ClusterRole.
+    - NetworkPolicy.
 
-   Retain applicable release-profile annotations and coordinate capability
-   eligibility with the order-30 barrier. Do not retain a negative feature gate
-   that excludes deletion after promotion. Tombstones must themselves pass
-   CVO's inclusion filters; do not ship active creation and deletion manifests
-   for the same temporary resource in the target payload.
+    Retain applicable release-profile annotations and coordinate capability
+    eligibility with the order-30 barrier. Do not retain a negative feature gate
+    that excludes deletion after promotion. Tombstones must themselves pass
+    CVO's inclusion filters; do not ship active creation and deletion manifests
+    for the same temporary resource in the target payload.
 
-3. Verify the generated Secret's owner reference points to the dedicated
-   Service and that deletion garbage-collects it. Explicitly remove an orphan
-   only after checking exclusive use and successful handoff. Do not delete the
-   full manager's serving certificate.
+11. Verify the generated Secret's owner reference points to the dedicated
+    Service and that deletion garbage-collects it. Explicitly remove an orphan
+    only after checking exclusive use and successful handoff. Do not delete the
+    full manager's serving certificate.
 
-4. Never tombstone either IPAM CRD, `openshift-cluster-api`, or any other shared
-   manager resources. CRD tombstones issue actual deletion, not relinquishment
-   of CVO ownership. The namespace must remain for the replacement manager;
-   the earlier dedicated-namespace deletion plan no longer applies.
+12. Never tombstone either IPAM CRD, `openshift-cluster-api`, or any other shared
+    manager resources. CRD tombstones issue actual deletion, not relinquishment
+    of CVO ownership. The namespace must remain for the replacement manager;
+    the earlier dedicated-namespace deletion plan no longer applies.
 
-5. Verify actual removal: CVO deletion is asynchronous. Retain deletion coverage
-   for supported source-to-target upgrade paths, including relevant z-stream
-   entry points and any supported skips. Remove obsolete binary packaging/code
-   only when no target-payload workload still needs it.
+13. Verify actual removal: CVO deletion is asynchronous. Retain deletion coverage
+    for supported source-to-target upgrade paths, including relevant z-stream
+    entry points and any supported skips. Remove obsolete binary packaging/code
+    only when no target-payload workload still needs it.
 
-#### Upgrade acceptance criteria
+14. Validate the upgrade acceptance criteria:
 
-- Existing beta1-stored objects survive adoption and remain usable through all
-  served IPAM versions.
-- After handoff, both CRDs reference the core manager Service with valid CA trust.
-- Delaying/failing the replacement manager keeps CCAPIO from reporting the target
-  version and leaves the standalone resources intact before order 31.
-- Successful installation satisfies the existing order-30 barrier, then order-31
-  deletion removes only the standalone resources.
-- Capability-disabled configurations cannot bypass a required handoff barrier or
-  lose their only IPAM conversion endpoint.
-- Fresh promotion-release installs do not create the tombstoned webhook; upgrade
-  and fresh-install namespace ownership remain valid.
-- The shared namespace, full manager, IPAM CRDs, and stored objects survive cleanup.
+    - Existing beta1-stored objects survive adoption and remain usable through all
+      served IPAM versions.
+    - After handoff, both CRDs reference the core manager Service with valid CA trust.
+    - Delaying/failing the replacement manager keeps CCAPIO from reporting the target
+      version and leaves the standalone resources intact before order 31.
+    - Successful installation satisfies the existing order-30 barrier, then order-31
+      deletion removes only the standalone resources.
+    - Capability-disabled configurations cannot bypass a required handoff barrier or
+      lose their only IPAM conversion endpoint.
+    - Fresh promotion-release installs do not create the tombstoned webhook; upgrade
+      and fresh-install namespace ownership remain valid.
+    - The shared namespace, full manager, IPAM CRDs, and stored objects survive cleanup.
 
-There is no planned Release N+2 cleanup phase: retirement occurs in Release N+1
-after the existing order-30 barrier, subject to the validation above.
+    There is no planned Release N+2 cleanup phase: retirement occurs in Release N+1
+    after the existing order-30 barrier, subject to the validation above.
